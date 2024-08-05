@@ -48,7 +48,14 @@
 # 3) 2 rotor encoders KY-040 Rotary Encoder Module Knob Push Button w Theaded Shaft + Nut
 # 4) LCD Display https://www.adafruit.com/product/358
 # 5) breakout breadboard like this https://www.ebay.com/itm/203042162648
+# 6) some buttons for changing modes
 
 # Download the latest CircuitPython https://circuitpython.org/board/raspberry_pi_pico/
 
 # copy the uf2 file to the raspi pico .
+
+
+# the encode for the freq also changes the mode lsb/usb
+# the button on the rit encoder enables/disables rit.
+# you will need a button for step/region/and band (band is if you plan to have 2m/6m)
+
