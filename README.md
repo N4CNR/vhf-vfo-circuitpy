@@ -1,7 +1,6 @@
 # vhf-vfo-circuitpy
- vhf vfo wtiten in circuitpython for raspi pi pico
- 
- 
+# vhf vfo wtiten in circuitpython for raspi pi pico
+  
 # Copyright <2024> <N4CNR (Richard Neese) (n4cnr.ham@gmail.com)>
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), 
@@ -41,3 +40,15 @@
 
 # Continuously update the display based on user interactions.
 # Update the SI5351 frequency output based on the current 
+
+
+# Parts needed
+# 1) Rasberry Pi Pico Raspberry https://www.adafruit.com/product/4883 or https://www.adafruit.com/product/5525
+# 2) si5351 breakout board https://www.adafruit.com/product/2045
+# 3) 2 rotor encoders KY-040 Rotary Encoder Module Knob Push Button w Theaded Shaft + Nut
+# 4) LCD Display https://www.adafruit.com/product/358
+# 5) breakout breadboard like this https://www.ebay.com/itm/203042162648
+
+# Download the latest CircuitPython https://circuitpython.org/board/raspberry_pi_pico/
+
+# copy the uf2 file to the raspi pico .
