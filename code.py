@@ -83,6 +83,22 @@ DEFAULT_FREQUENCY = current_frequency
 # Release any displays that may be in use
 displayio.release_displays()
 
+
+# VCC		    3V3
+# GND		    GND
+# CS		    GP13
+# RESET		    GP14
+# DC		    GP15
+# SDI(MOSI)	    GP7
+# SCK		    GP6
+# LED		    3V3
+# SDO(MISO)
+# T- T_CLK	    GP10
+# O  T_CS		    GP12
+# U  T_DIN	    GP11
+# C  T_DO		    GP8
+# H- T_IRQ
+
 # Pin configuration for ILI9341 TFT Display
 tft_clk = board.GP10  # sclk
 tft_mosi = board.GP11  # sda
