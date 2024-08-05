@@ -51,20 +51,20 @@ import rotaryio
 import adafruit_debouncer
 
 # ITU Regions and Frequency Bands
-ITU_REGIONS = ['Region 1', 'Region 2', 'Region 3']
+ITU_REGIONS = ['1', '2', '3']
 BANDS = ['2m', '6m']
 FREQUENCY_RANGES = {
-    'Region 1': {
-        '2m': (144000000, 144499000),
-        '6m': (50000000, 50300000)
-    },
-    'Region 2': {
+    '1': {
         '2m': (144000000, 144500000),
         '6m': (50000000, 50400000)
     },
-    'Region 3': {
-        '2m': (144000000, 145800000),
-        '6m': (50000000, 54000000)
+    '2': {
+        '2m': (144000000, 144500000),
+        '6m': (50000000, 50400000)
+    },
+    '3': {
+        '2m': (144000000, 144500000),
+        '6m': (50000000, 50400000)
     }
 }
 
@@ -205,7 +205,7 @@ band_button_debounced = adafruit_debouncer.Debouncer(band_button)
 
 # Initial state
 current_frequency = DEFAULT_FREQUENCY
-current_step_index = 3  # Default step to 10000 Hz
+current_step_index = 2  # Default step to 10000 Hz
 current_mode = MODES[0] # Defaults to USB
 rit_enabled = False # Rit Disabled by default
 rit_value = 0 # Default rit to 0 when Disabled AKA Reset Rit
@@ -213,12 +213,13 @@ transmit_mode = False # Track the transmit mode
 
 def update_display():
     display_frequency = current_frequency + rit_value if rit_enabled else current_frequency
-    text = f"Freq: {display_frequency / 1000:.1f} MHz\n"
-    text += f"Mode: {current_mode}\n"
-    text += f"Step: {STEPS[current_step_index]} Hz\n"
-    text += f"RIT: {rit_value / 1000:.1f} kHz {'ON' if rit_enabled else 'OFF'}\n"
-    text += f"Region: {current_region}\n"
-    text += f"Band: {current_band}\n"
+    text = f" \n"
+    text += f"     {current_mode} {display_frequency / 1000:.1f} MHz\n"
+    text += f" \n"
+    text += f" Step: {STEPS[current_step_index]} Hz\n"
+    text += f" RIT: {'ON' if rit_enabled else 'OFF'} {rit_value / 1000:.1f} kHz \n"
+    text += " \n"
+    text += f"Band:{current_band}            ITU:{current_region} \n"
     text_area.text = text
     transmitting_label.hidden = ptt_button.value  # Show transmitting if PTT is pressed
     blue_bar.hidden = ptt_button.value  # Show red bar if PTT is pressed
