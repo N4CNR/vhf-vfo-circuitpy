@@ -1,61 +1,66 @@
-# vhf-vfo-circuitpy
-# vhf vfo wtiten in circuitpython for raspi pi pico
-  
-# Copyright <2024> <N4CNR (Richard Neese) (n4cnr.ham@gmail.com)>
+# VHF VFO for CircuitPython on Raspberry Pi Pico
 
-# Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), 
-# to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, 
-# and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+# Copyright (C) 2024 Richard Neese (N4CNR)
+# Contact: n4cnr.ham@gmail.com
 
-# The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
 
-# THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
-# WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
 
-# CircutPython 9
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
 
-# Designing a VHF VFO 6M or 2m
-# CircuitPython on a Raspberry Pi Pico with an SI5351 and an ST7735 
-# SPI display involves several components and functionalities. 
-# Below is a step-by-step implementation plan, followed by the complete code.
+# Description:
+# Designing a VHF VFO (Variable Frequency Oscillator) for 6M or 2M bands using
+# CircuitPython on a Raspberry Pi Pico with an SI5351 frequency generator and
+# an ST7735 SPI display. This project involves setting up components and
+# handling various functionalities such as frequency changes, mode switching,
+# and user interface through encoders and buttons.
 
 # Implementation Plan:
-# Setup and Initialization:
+# 1. Setup and Initialization:
+#    - Initialize the SPI display (ST7735).
+#    - Initialize the SI5351 frequency generator.
+#    - Set up encoders and buttons.
 
-# Initialize the SPI display (ST7735).
-# Initialize the SI5351.
-# Set up the encoders and buttons.
-# Display Functionality:
+# 2. Display Functionality:
+#    - Display the current frequency, mode (USB/LSB), RIT status, and step size.
 
-# Display the current frequency, mode (USB/LSB), RIT status, and step size.
-# Encoders and Button Handling:
+# 3. Encoders and Button Handling:
+#    - Main encoder: Handle frequency changes.
+#    - RIT encoder: Handle RIT (Receiver Incremental Tuning) changes.
+#    - Step button: Change frequency steps.
+#    - RIT encoder button: Toggle RIT.
+#    - Main encoder button: Change mode (USB/LSB).
+#    - Flash the screen red if PTT (Push-to-Talk) is active.
 
-# Handle frequency changes with the main encoder.
-# Handle RIT changes with the RIT encoder.
-# Change frequency steps with the step button.
-# Toggle RIT with the RIT encoder button.
-# Change mode (USB/LSB) with the main encoder button.
-# Board Raspi Pico, flash screen red if ptt active
+# 4. Continuous Update:
+#    - Continuously update the display and the SI5351 output based on user interactions.
 
-# Continuously update the display based on user interactions.
-# Update the SI5351 frequency output based on the current 
+# Parts Needed:
+# 1. Raspberry Pi Pico: [Product 4883](https://www.adafruit.com/product/4883) or [Product 5525](https://www.adafruit.com/product/5525)
+# 2. SI5351 Breakout Board: [Product 2045](https://www.adafruit.com/product/2045)
+# 3. KY-040 Rotary Encoder Module Knob with Push Button
+# 4. LCD Display: [Product 358](https://www.adafruit.com/product/358)
+# 5. Breakout Breadboard: [Example on eBay](https://www.ebay.com/itm/203042162648)
+# 6. Additional buttons for changing modes
 
+# Instructions:
+# - Download the latest CircuitPython for Raspberry Pi Pico: https://circuitpython.org/board/raspberry_pi_pico/
+# - Copy the UF2 file to the Raspberry Pi Pico.
 
-# Parts needed
-# 1) Rasberry Pi Pico Raspberry https://www.adafruit.com/product/4883 or https://www.adafruit.com/product/5525
-# 2) si5351 breakout board https://www.adafruit.com/product/2045
-# 3) 2 rotor encoders KY-040 Rotary Encoder Module Knob Push Button w Theaded Shaft + Nut
-# 4) LCD Display https://www.adafruit.com/product/358
-# 5) breakout breadboard like this https://www.ebay.com/itm/203042162648
-# 6) some buttons for changing modes
-
-# Download the latest CircuitPython https://circuitpython.org/board/raspberry_pi_pico/
-
-# copy the uf2 file to the raspi pico .
-
-
-# the encode for the freq also changes the mode lsb/usb
-# the button on the rit encoder enables/disables rit.
-# you will need a button for step/region/and band (band is if you plan to have 2m/6m)
-
+# Additional Notes:
+# - The main encoder also changes the mode (USB/LSB).
+# - The button on the RIT encoder toggles RIT.
+# - A button is needed for step/region/band selection (band selection is for 2M/6M operation).
