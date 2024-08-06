@@ -54,22 +54,15 @@ import adafruit_debouncer
 ITU_REGIONS = ['1', '2', '3']
 BANDS = ['2m', '6m']
 FREQUENCY_RANGES = {
-    '1': {
-        '2m': (144000000, 144500000),
-        '6m': (50000000, 50400000)
-    },
-    '2': {
-        '2m': (144000000, 144500000),
-        '6m': (50000000, 50400000)
-    },
-    '3': {
-        '2m': (144000000, 144500000),
-        '6m': (50000000, 50400000)
-    }
+    '1': {'2m': (144000000, 144500000), '6m': (50000000, 50400000)},
+    '2': {'2m': (144000000, 144500000), '6m': (50000000, 50400000)},
+    '3': {'2m': (144000000, 144500000), '6m': (50000000, 50400000)}
 }
 
-# si5351 or si570
-IF_FREQUENCY = 26994100
+IF_FREQUENCY = 26994100  # Intermediate Frequency
+STEPS = [100, 1000, 10000, 100000]  # Frequency steps in Hz
+MODES = ['USB', 'LSB']  # Operational modes
+DOUBLE_PRESS_INTERVAL = 0.5  # Time interval for double press detection in seconds
 
 # Initial state
 current_region_index = 1
@@ -84,72 +77,46 @@ DEFAULT_FREQUENCY = current_frequency
 displayio.release_displays()
 
 # Pin configuration for ST7735 TFT Display
-tft_clk = board.GP10  # sclk
-tft_mosi = board.GP11  # sda
-tft_reset = board.GP12  # reset
-tft_dc = board.GP8  # a0
-tft_cs = board.GP9  # cs
+tft_clk, tft_mosi, tft_reset = board.GP10, board.GP11, board.GP12
+tft_dc, tft_cs = board.GP8, board.GP9
 
-# Required for SI5351 or SI570 in future
-sda = board.GP4
-scl = board.GP5
+# I2C configuration for SI5351 clock chip
+sda, scl = board.GP4, board.GP5
 
-# Frequency encoder +/- and select mode USB/LSB Functional
-enc_a = board.GP13
-enc_b = board.GP14
-enc_switch = board.GP15
+# Encoder and button configuration
+enc_a, enc_b, enc_switch = board.GP13, board.GP14, board.GP15
+ptt_btn, rit_enc_a, rit_enc_b, rit_enc_btn = board.GP2, board.GP16, board.GP17, board.GP18
+step_switch, itu_button, band_button = board.GP3, board.GP6, board.GP7
 
-# Used to display Transmitting on screen
-ptt_btn = board.GP2
-
-# RIT +/- Functional
-rit_enc_a = board.GP16
-rit_enc_b = board.GP17
-rit_enc_btn = board.GP18
-
-# Used for button to cycle through Steps
-step_switch = board.GP3
-
-# Button to change ITU region
-itu_button = board.GP6  # Assign a suitable GPIO pin
-
-# Button to change band
-band_button = board.GP7  # Assign a suitable GPIO pin
-
-STEPS = [100, 1000, 10000, 100000]
-MODES = ['USB', 'LSB']  # CW to be added in future
-DOUBLE_PRESS_INTERVAL = 0.5  # Time interval for double press detection in seconds
-
-# I2C setup used for SI570 or SI5351 clock chips
+# Setup I2C and SPI buses
 i2c = busio.I2C(scl, sda)
-
-# SPI Display Pin Setup
 spi = busio.SPI(clock=tft_clk, MOSI=tft_mosi)
+
+# Setup display
 display_bus = displayio.FourWire(spi, command=tft_dc, chip_select=tft_cs, reset=tft_reset)
 display = ST7735R(display_bus, width=160, height=128, rotation=90)
 
-# Si5351 setup
+# Setup Si5351 clock generator
 si5351 = SI5351(i2c)
 
-# Display setup
+# Setup display groups and elements
 splash = displayio.Group()
 display.root_group = splash
+
 color_bitmap = displayio.Bitmap(160, 128, 1)
 color_palette = displayio.Palette(1)
 color_palette[0] = 0x000000  # Black background
-
 bg_sprite = displayio.TileGrid(color_bitmap, pixel_shader=color_palette, x=0, y=0)
 splash.append(bg_sprite)
 
 text_area = label.Label(terminalio.FONT, scale=1, text="Initializing...", color=0xFFFFFF, x=10, y=20)
 splash.append(text_area)
 
-# Flashes bottom of screen above blue bar when PTT is activated
 transmitting_label = label.Label(terminalio.FONT, scale=1, text="Transmitting", color=0xFFFF00, x=45, y=110)
 splash.append(transmitting_label)
 transmitting_label.hidden = True  # Initially hidden
 
-# S-meter setup Further work needed
+# Setup S-meter
 smeter_text = label.Label(terminalio.FONT, scale=1, text="S:", color=0x00FF00, x=10, y=5)
 splash.append(smeter_text)
 
@@ -160,7 +127,6 @@ for i in range(10):
 smeter_sprite = displayio.TileGrid(smeter_bar, pixel_shader=smeter_palette, x=22, y=0)
 splash.append(smeter_sprite)
 
-# Add blue bar at the bottom Flashes when PTT is activated
 blue_bar_bitmap = displayio.Bitmap(160, 10, 1)
 blue_bar_palette = displayio.Palette(1)
 blue_bar_palette[0] = 0xFF0000
@@ -168,7 +134,7 @@ blue_bar = displayio.TileGrid(blue_bar_bitmap, pixel_shader=blue_bar_palette, x=
 splash.append(blue_bar)
 blue_bar.hidden = True  # Initially hidden
 
-# Encoders setup
+# Encoder and button setup
 freq_encoder = rotaryio.IncrementalEncoder(enc_a, enc_b)
 freq_switch = digitalio.DigitalInOut(enc_switch)
 freq_switch.direction = digitalio.Direction.INPUT
@@ -203,15 +169,15 @@ step_button_debounced = adafruit_debouncer.Debouncer(step_button)
 itu_button_debounced = adafruit_debouncer.Debouncer(itu_button)
 band_button_debounced = adafruit_debouncer.Debouncer(band_button)
 
-# Initial state
-current_frequency = DEFAULT_FREQUENCY
+# State variables
 current_step_index = 2  # Default step to 10000 Hz
-current_mode = MODES[0] # Defaults to USB
-rit_enabled = False # Rit Disabled by default
-rit_value = 0 # Default rit to 0 when Disabled AKA Reset Rit
-transmit_mode = False # Track the transmit mode
+current_mode = MODES[0]  # Defaults to USB
+rit_enabled = False  # RIT Disabled by default
+rit_value = 0  # Default RIT to 0 when Disabled
+transmit_mode = False  # Track the transmit mode
 
 def update_display():
+    """Update the display with the current frequency, mode, and other parameters."""
     display_frequency = current_frequency + rit_value if rit_enabled else current_frequency
     text = f" \n"
     text += f"     {current_mode} {display_frequency / 1000:.1f} MHz\n"
@@ -225,17 +191,21 @@ def update_display():
     blue_bar.hidden = ptt_button.value  # Show red bar if PTT is pressed
 
 def set_frequency(frequency):
+    """Set the frequency on the Si5351."""
     pll_frequency = frequency + IF_FREQUENCY # Add logic to set the frequency on the Si5351
 
 def change_mode():
+    """Change the mode between USB and LSB."""
     global current_mode
     current_mode = MODES[(MODES.index(current_mode) + 1) % len(MODES)]
 
 def change_step():
+    """Cycle through the frequency steps."""
     global current_step_index
     current_step_index = (current_step_index + 1) % len(STEPS)
 
 def change_itu_region():
+    """Cycle through the ITU regions."""
     global current_region_index, current_region, FREQUENCY_RANGE, current_frequency
     current_region_index = (current_region_index + 1) % len(ITU_REGIONS)
     current_region = ITU_REGIONS[current_region_index]
@@ -244,6 +214,7 @@ def change_itu_region():
     set_frequency(current_frequency)
 
 def change_band():
+    """Cycle through the frequency bands."""
     global current_band_index, current_band, FREQUENCY_RANGE, current_frequency
     current_band_index = (current_band_index + 1) % len(BANDS)
     current_band = BANDS[current_band_index]
@@ -252,31 +223,27 @@ def change_band():
     set_frequency(current_frequency)
 
 def handle_freq_encoder():
+    """Handle frequency encoder changes."""
     global current_frequency
     position = freq_encoder.position
     if position != 0:
         step = STEPS[current_step_index]
         current_frequency += position * step
-        if current_frequency < FREQUENCY_RANGE[0]:
-            current_frequency = FREQUENCY_RANGE[0]
-        if current_frequency > FREQUENCY_RANGE[1]:
-            current_frequency = FREQUENCY_RANGE[1]
+        current_frequency = max(min(current_frequency, FREQUENCY_RANGE[1]), FREQUENCY_RANGE[0])
         freq_encoder.position = 0
         set_frequency(current_frequency)
 
 def handle_rit_encoder():
+    """Handle RIT encoder changes."""
     global rit_value
     position = rit_encoder.position
     if rit_enabled and position != 0 and not transmit_mode:
         rit_value += position * 100
-        if rit_value < -9900:
-            rit_value = -9900
-        if rit_value > 9900:
-            rit_value = 9900
+        rit_value = max(min(rit_value, 9900), -9900)
         rit_encoder.position = 0
 
 def update_smeter(level):
-    # Update the S-meter display
+    """Update the S-meter display."""
     level = min(max(level, 0), 9)  # Ensure level is between 0 and 9
     smeter_text.text = f"S: {level}"
     smeter_text.color = (level * 28, 255 - level * 28, 0)
@@ -285,6 +252,7 @@ def update_smeter(level):
 
 # Main loop
 while True:
+    # Update debouncers
     freq_switch_debounced.update()
     rit_switch_debounced.update()
     step_button_debounced.update()
@@ -292,6 +260,7 @@ while True:
     itu_button_debounced.update()
     band_button_debounced.update()
 
+    # Handle encoder and button inputs
     handle_freq_encoder()
     handle_rit_encoder()
 
