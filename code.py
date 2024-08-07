@@ -1,11 +1,11 @@
 # Copyright <2024> <N4CNR (Richard Neese) (n4cnr.ham@gmail.com)>
-
+#
 # Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”),
 # to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
 # and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
+#
 # The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
+#
 # THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
 # WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
@@ -32,7 +32,7 @@ FREQUENCY_RANGES = {
 }
 
 IF_FREQUENCY = 26994100  # Intermediate Frequency
-STEPS = [100, 1000, 10000, 100000]  # Frequency steps in Hz
+STEPS = [100, 500, 1000, 1500, 10000, 50000, 100000]  # Frequency steps in Hz
 MODES = ["USB", "LSB"]  # Operational modes
 DOUBLE_PRESS_INTERVAL = 0.5  # Time interval for double press detection in seconds
 
@@ -74,7 +74,7 @@ display = ST7735R(display_bus, width=160, height=128, rotation=90)
 
 """Setup Si5351 clock generator"""
 si5351 = SI5351(i2c)
-si5351.pll_a.configure_integer()  # Configure PLL with initial frequency
+si5351.pll_a.configure_integer(24)  # Configure PLL with initial frequency for 144 MHz
 
 """Setup display groups and elements"""
 splash = displayio.Group()
@@ -162,7 +162,6 @@ rit_enabled = False  # RIT Disabled by default
 rit_value = 0  # Default RIT to 0 when Disabled
 transmit_mode = False  # Track the transmit mode
 
-
 def update_display():
     """Update the display with the current frequency, mode, and other parameters."""
     display_frequency = (
@@ -179,26 +178,25 @@ def update_display():
     transmitting_label.hidden = ptt_button.value  # Show transmitting if PTT is pressed
     blue_bar.hidden = ptt_button.value  # Show red bar if PTT is pressed
 
-
 def set_frequency(frequency):
     """Set the frequency on the Si5351."""
     pll_frequency = (
         frequency + IF_FREQUENCY
-    )  # Add logic to set the frequency on the Si5351
-    si5351.clock_a.configure_integer(pll_frequency)
-    si5351.clock_a.enable = False
+    )
+    # Configure the PLL and Clock outputs
+    si5351.pll_a.configure_integer(pll_frequency // 8000000)
+    si5351.clock_0.configure_integer(pll_frequency, pll_frequency // 8000000)
+    si5351.clock_1.configure_integer(pll_frequency, pll_frequency // 8000000)
 
 def change_mode():
     """Change the mode between USB and LSB."""
     global current_mode
     current_mode = MODES[(MODES.index(current_mode) + 1) % len(MODES)]
 
-
 def change_step():
     """Cycle through the frequency steps."""
     global current_step_index
     current_step_index = (current_step_index + 1) % len(STEPS)
-
 
 def change_itu_region():
     """Cycle through the ITU regions."""
@@ -209,7 +207,6 @@ def change_itu_region():
     current_frequency = FREQUENCY_RANGE[0]
     set_frequency(current_frequency)
 
-
 def change_band():
     """Cycle through the frequency bands."""
     global current_band_index, current_band, FREQUENCY_RANGE, current_frequency
@@ -218,7 +215,6 @@ def change_band():
     FREQUENCY_RANGE = FREQUENCY_RANGES[current_region][current_band]
     current_frequency = FREQUENCY_RANGE[0]
     set_frequency(current_frequency)
-
 
 def handle_freq_encoder():
     """Handle frequency encoder changes."""
@@ -233,7 +229,6 @@ def handle_freq_encoder():
         freq_encoder.position = 0
         set_frequency(current_frequency)
 
-
 def handle_rit_encoder():
     """Handle RIT encoder changes."""
     global rit_value
@@ -243,7 +238,6 @@ def handle_rit_encoder():
         rit_value = max(min(rit_value, 9900), -9900)
         rit_encoder.position = 0
 
-
 def update_smeter(level):
     """Update the S-meter display."""
     level = min(max(level, 0), 9)  # Ensure level is between 0 and 9
@@ -251,21 +245,6 @@ def update_smeter(level):
     smeter_text.color = (level * 28, 255 - level * 28, 0)
     for x in range(100):
         smeter_bar[x, 0] = min(x // 10, level)  # Update bar graph
-
-# si570 clock
-# Initialization
-def setup():
-    global ticks
-    ticks = time.monotonic()
-    # Placeholder for display_init() and si570_init() equivalents in CircuitPython
-    # attach interrupts for encoder pins
-
-# Main loop used for si570
-def loop():
-    global ticks
-    ticks = time.monotonic()
-    if do_tuning():
-        print(current_frequency)
 
 # Main loop
 while True:
@@ -303,7 +282,7 @@ while True:
     if band_button_debounced.fell:
         change_band()
 
-        """Simulate S-meter level for testing purposes (random value between 0 and 9)"""
+    """Simulate S-meter level for testing purposes (random value between 0 and 9)"""
     smeter_level = time.monotonic() % 10
     update_smeter(int(smeter_level))
 
