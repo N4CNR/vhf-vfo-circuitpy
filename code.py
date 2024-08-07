@@ -74,6 +74,7 @@ display = ST7735R(display_bus, width=160, height=128, rotation=90)
 
 """Setup Si5351 clock generator"""
 si5351 = SI5351(i2c)
+si5351.pll_a.configure_integer()  # Configure PLL with initial frequency
 
 """Setup display groups and elements"""
 splash = displayio.Group()
@@ -185,7 +186,7 @@ def set_frequency(frequency):
         frequency + IF_FREQUENCY
     )  # Add logic to set the frequency on the Si5351
     si5351.clock_a.configure_integer(pll_frequency)
-    si5351.clock_a.enable = True
+    si5351.clock_a.enable = False
 
 def change_mode():
     """Change the mode between USB and LSB."""
@@ -251,6 +252,20 @@ def update_smeter(level):
     for x in range(100):
         smeter_bar[x, 0] = min(x // 10, level)  # Update bar graph
 
+# si570 clock
+# Initialization
+def setup():
+    global ticks
+    ticks = time.monotonic()
+    # Placeholder for display_init() and si570_init() equivalents in CircuitPython
+    # attach interrupts for encoder pins
+
+# Main loop used for si570
+def loop():
+    global ticks
+    ticks = time.monotonic()
+    if do_tuning():
+        print(current_frequency)
 
 # Main loop
 while True:
