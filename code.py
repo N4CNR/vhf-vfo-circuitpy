@@ -33,7 +33,7 @@ FREQUENCY_RANGES = {
 
 IF_FREQUENCY = 26994100  # Intermediate Frequency
 
-STEPS = [100, 500, 1000, 1500, 10000, 100000]  # Frequency steps in Hz
+STEPS = [100, 1000, 10000, 100000]  # Frequency steps in Hz
 MODES = ["USB", "LSB"]  # Operational modes
 DOUBLE_PRESS_INTERVAL = 0.5  # Time interval for double press detection in seconds
 
@@ -205,8 +205,8 @@ def set_frequency(frequency):
     pll_frequency = frequency + IF_FREQUENCY
     # Configure the PLL and Clock outputs
     si5351.pll_a.configure_integer(pll_frequency // 8000000)
-    si5351.clock_0.configure_integer(pll_frequency, pll_frequency // 8000000)
-    si5351.clock_1.configure_integer(pll_frequency, pll_frequency // 8000000)
+    si5351.clock_0.configure_integer(si5351.pll_a, pll_frequency // 8000000)
+    si5351.clock_1.configure_integer(si5351.pll_a, pll_frequency // 8000000)
     si5351.outputs_enabled = True
 
 
