@@ -32,7 +32,8 @@ FREQUENCY_RANGES = {
 }
 
 IF_FREQUENCY = 26994100  # Intermediate Frequency
-STEPS = [100, 500, 1000, 1500, 10000, 50000, 100000]  # Frequency steps in Hz
+
+STEPS = [100, 500, 1000, 1500, 10000, 100000]  # Frequency steps in Hz
 MODES = ["USB", "LSB"]  # Operational modes
 DOUBLE_PRESS_INTERVAL = 0.5  # Time interval for double press detection in seconds
 
@@ -48,6 +49,17 @@ DEFAULT_FREQUENCY = current_frequency
 """Release any displays that may be in use"""
 displayio.release_displays()
 
+""" Future Changes
+# VCC		    3V3
+# GND		    GND
+# CS		    GP13
+# RESET		    GP14
+# DC		    GP15
+# SDI(MOSI)	    GP7
+# SCK		    GP6
+# LED		    3V3
+"""
+
 """Pin configuration for ST7735 TFT Display"""
 tft_clk, tft_mosi, tft_reset = board.GP10, board.GP11, board.GP12
 tft_dc, tft_cs = board.GP8, board.GP9
@@ -58,7 +70,10 @@ sda, scl = board.GP4, board.GP5
 """Encoder and button configuration"""
 enc_a, enc_b, enc_switch = board.GP13, board.GP14, board.GP15
 ptt_btn, rit_enc_a, rit_enc_b, rit_enc_btn = (
-    board.GP2, board.GP16, board.GP17, board.GP18,
+    board.GP2,
+    board.GP16,
+    board.GP17,
+    board.GP18,
 )
 step_switch, itu_button, band_button = board.GP3, board.GP6, board.GP7
 
@@ -74,7 +89,12 @@ display = ST7735R(display_bus, width=160, height=128, rotation=90)
 
 """Setup Si5351 clock generator"""
 si5351 = SI5351(i2c)
-si5351.pll_a.configure_integer(24)  # Configure PLL with initial frequency for 144 MHz
+
+# Initialize the Si5351 with a crystal load capacitance of 8pF
+#si5351.init(8)
+
+# Configure PLL with initial frequency for 144 MHz
+si5351.pll_a.configure_integer(24)
 
 """Setup display groups and elements"""
 splash = displayio.Group()
@@ -92,7 +112,7 @@ text_area = label.Label(
 splash.append(text_area)
 
 transmitting_label = label.Label(
-    terminalio.FONT, scale=1, text="Transmitting", color=0xFFFF00, x=45, y=110
+    terminalio.FONT, scale=1, text="Transmitting", color=0xFFFF00, x=50, y=95
 )
 splash.append(transmitting_label)
 transmitting_label.hidden = True  # Initially hidden
@@ -162,6 +182,7 @@ rit_enabled = False  # RIT Disabled by default
 rit_value = 0  # Default RIT to 0 when Disabled
 transmit_mode = False  # Track the transmit mode
 
+
 def update_display():
     """Update the display with the current frequency, mode, and other parameters."""
     display_frequency = (
@@ -178,25 +199,28 @@ def update_display():
     transmitting_label.hidden = ptt_button.value  # Show transmitting if PTT is pressed
     blue_bar.hidden = ptt_button.value  # Show red bar if PTT is pressed
 
+
 def set_frequency(frequency):
     """Set the frequency on the Si5351."""
-    pll_frequency = (
-        frequency + IF_FREQUENCY
-    )
+    pll_frequency = frequency + IF_FREQUENCY
     # Configure the PLL and Clock outputs
     si5351.pll_a.configure_integer(pll_frequency // 8000000)
     si5351.clock_0.configure_integer(pll_frequency, pll_frequency // 8000000)
     si5351.clock_1.configure_integer(pll_frequency, pll_frequency // 8000000)
+    si5351.outputs_enabled = True
+
 
 def change_mode():
     """Change the mode between USB and LSB."""
     global current_mode
     current_mode = MODES[(MODES.index(current_mode) + 1) % len(MODES)]
 
+
 def change_step():
     """Cycle through the frequency steps."""
     global current_step_index
     current_step_index = (current_step_index + 1) % len(STEPS)
+
 
 def change_itu_region():
     """Cycle through the ITU regions."""
@@ -207,6 +231,7 @@ def change_itu_region():
     current_frequency = FREQUENCY_RANGE[0]
     set_frequency(current_frequency)
 
+
 def change_band():
     """Cycle through the frequency bands."""
     global current_band_index, current_band, FREQUENCY_RANGE, current_frequency
@@ -215,6 +240,7 @@ def change_band():
     FREQUENCY_RANGE = FREQUENCY_RANGES[current_region][current_band]
     current_frequency = FREQUENCY_RANGE[0]
     set_frequency(current_frequency)
+
 
 def handle_freq_encoder():
     """Handle frequency encoder changes."""
@@ -229,6 +255,7 @@ def handle_freq_encoder():
         freq_encoder.position = 0
         set_frequency(current_frequency)
 
+
 def handle_rit_encoder():
     """Handle RIT encoder changes."""
     global rit_value
@@ -238,6 +265,7 @@ def handle_rit_encoder():
         rit_value = max(min(rit_value, 9900), -9900)
         rit_encoder.position = 0
 
+
 def update_smeter(level):
     """Update the S-meter display."""
     level = min(max(level, 0), 9)  # Ensure level is between 0 and 9
@@ -245,6 +273,7 @@ def update_smeter(level):
     smeter_text.color = (level * 28, 255 - level * 28, 0)
     for x in range(100):
         smeter_bar[x, 0] = min(x // 10, level)  # Update bar graph
+
 
 # Main loop
 while True:
