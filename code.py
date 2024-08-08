@@ -18,12 +18,13 @@ import terminalio
 from adafruit_display_text import label
 from adafruit_st7735r import ST7735R
 from adafruit_si5351 import SI5351
-import digitalio
+from digitalio import DigitalInOut, Direction, Pull
 import rotaryio
 import adafruit_debouncer
 import microcontroller
+import pwmio
 
-"""ITU Regions and Frequency Bands"""
+# ITU Regions and Frequency Bands
 ITU_REGIONS = ["1", "2", "3"]
 BANDS = ["2m", "6m"]
 FREQUENCY_RANGES = {
@@ -33,12 +34,11 @@ FREQUENCY_RANGES = {
 }
 
 IF_FREQUENCY = 26994100  # Intermediate Frequency
-
 STEPS = [100, 1000, 10000, 100000]  # Frequency steps in Hz
 MODES = ["USB", "LSB"]  # Operational modes
 DOUBLE_PRESS_INTERVAL = 0.5  # Time interval for double press detection in seconds
 
-"""Initial state"""
+# Initial state
 current_region_index = 1
 current_band_index = 0
 current_region = ITU_REGIONS[current_region_index]
@@ -47,52 +47,44 @@ FREQUENCY_RANGE = FREQUENCY_RANGES[current_region][current_band]
 current_frequency = FREQUENCY_RANGE[0]
 DEFAULT_FREQUENCY = current_frequency
 
-"""Release any displays that may be in use"""
+# Release any displays that may be in use
 displayio.release_displays()
 
-"""Pin configuration for ST7735 TFT Display"""
+# Pin configuration for ST7735 TFT Display
 tft_clk, tft_mosi, tft_reset = board.GP10, board.GP11, board.GP12
 tft_dc, tft_cs = board.GP8, board.GP9
 
-"""I2C configuration for SI5351 clock chip"""
+# I2C configuration for SI5351 clock chip
 sda, scl = board.GP4, board.GP5
 
-"""Encoder configuration"""
+# Encoder configuration
 enc_a, enc_b, enc_switch = board.GP13, board.GP14, board.GP15
-ptt_btn, rit_enc_a, rit_enc_b, rit_enc_btn = (
-    board.GP2,
-    board.GP16,
-    board.GP17,
-    board.GP18,
-)
+ptt_btn, rit_enc_a, rit_enc_b, rit_enc_btn = board.GP2, board.GP16, board.GP17, board.GP18
 
-"""Button configuration"""
+# Button configuration
 step_switch, itu_button, band_button = board.GP3, board.GP6, board.GP7
 
-"""Relay configuration"""
+# Relay configuration
 relay_pin = board.GP22
-relay = digitalio.DigitalInOut(relay_pin)
-relay.direction = digitalio.Direction.OUTPUT
+relay = DigitalInOut(relay_pin)
+relay.direction = Direction.OUTPUT
 relay.value = False  # Start with relay off
 
-"""Setup I2C and SPI buses"""
+# Setup I2C and SPI buses
 i2c = busio.I2C(scl, sda)
 spi = busio.SPI(clock=tft_clk, MOSI=tft_mosi)
 
-"""Setup display"""
-display_bus = displayio.FourWire(
-    spi, command=tft_dc, chip_select=tft_cs, reset=tft_reset
-)
+# Setup display
+display_bus = displayio.FourWire(spi, command=tft_dc, chip_select=tft_cs, reset=tft_reset)
 display = ST7735R(display_bus, width=160, height=128, rotation=90)
 
-"""Setup Si5351 clock generator"""
+# Setup Si5351 clock generator
 si5351 = SI5351(i2c)
-# Configure PLL with initial frequency for 144 MHz
-si5351.pll_a.configure_integer(24)
+si5351.pll_a.configure_integer(24)  # Configure PLL with initial frequency for 144 MHz
 
-"""Setup display groups and elements"""
+# Setup display groups and elements
 splash = displayio.Group()
-display.root_group = splash
+display.root_group = (splash)
 
 color_bitmap = displayio.Bitmap(160, 128, 1)
 color_palette = displayio.Palette(1)
@@ -100,26 +92,18 @@ color_palette[0] = 0x000000  # Black background
 bg_sprite = displayio.TileGrid(color_bitmap, pixel_shader=color_palette, x=0, y=0)
 splash.append(bg_sprite)
 
-text_area = label.Label(
-    terminalio.FONT, scale=1, text="Initializing...", color=0xFFFFFF, x=10, y=20
-)
+text_area = label.Label(terminalio.FONT, scale=1, text="Initializing...", color=0xFFFFFF, x=10, y=20)
 splash.append(text_area)
 
-transmitting_label = label.Label(
-    terminalio.FONT, scale=1, text="Transmitting", color=0xFFFF00, x=50, y=95
-)
+transmitting_label = label.Label(terminalio.FONT, scale=1, text="Transmitting", color=0xFFFF00, x=50, y=95)
 splash.append(transmitting_label)
 transmitting_label.hidden = True  # Initially hidden
 
-"""Setup S-meter"""
-smeter_text = label.Label(
-    terminalio.FONT, scale=1, text="S:", color=0x00FF00, x=10, y=5
-)
+# Setup S-meter
+smeter_text = label.Label(terminalio.FONT, scale=1, text="S:", color=0x00FF00, x=10, y=5)
 splash.append(smeter_text)
 
-smeter_text1 = label.Label(
-    terminalio.FONT, scale=1, text="0...3...5...7...9", color=0xFF00ff, x=39, y=16
-)
+smeter_text1 = label.Label(terminalio.FONT, scale=1, text="0...3...5...7...9", color=0xFF00ff, x=39, y=16)
 splash.append(smeter_text1)
 
 smeter_bar = displayio.Bitmap(100, 10, 10)  # Create a bar graph
@@ -129,44 +113,42 @@ for i in range(10):
 smeter_sprite = displayio.TileGrid(smeter_bar, pixel_shader=smeter_palette, x=38, y=0)
 splash.append(smeter_sprite)
 
-"""Setup Blue Transmitting Bar"""
+# Setup Blue Transmitting Bar
 blue_bar_bitmap = displayio.Bitmap(160, 10, 1)
 blue_bar_palette = displayio.Palette(1)
 blue_bar_palette[0] = 0xFF0000
-blue_bar = displayio.TileGrid(
-    blue_bar_bitmap, pixel_shader=blue_bar_palette, x=0, y=115
-)
+blue_bar = displayio.TileGrid(blue_bar_bitmap, pixel_shader=blue_bar_palette, x=0, y=115)
 splash.append(blue_bar)
 blue_bar.hidden = True  # Initially hidden
 
-"""Encoder and button setup"""
+# Encoder and button setup
 freq_encoder = rotaryio.IncrementalEncoder(enc_a, enc_b)
-freq_switch = digitalio.DigitalInOut(enc_switch)
-freq_switch.direction = digitalio.Direction.INPUT
-freq_switch.pull = digitalio.Pull.UP
+freq_switch = DigitalInOut(enc_switch)
+freq_switch.direction = Direction.INPUT
+freq_switch.pull = Pull.UP
 
-ptt_button = digitalio.DigitalInOut(ptt_btn)
-ptt_button.direction = digitalio.Direction.INPUT
-ptt_button.pull = digitalio.Pull.UP
+ptt_button = DigitalInOut(ptt_btn)
+ptt_button.direction = Direction.INPUT
+ptt_button.pull = Pull.UP
 
 rit_encoder = rotaryio.IncrementalEncoder(rit_enc_a, rit_enc_b)
-rit_switch = digitalio.DigitalInOut(rit_enc_btn)
-rit_switch.direction = digitalio.Direction.INPUT
-rit_switch.pull = digitalio.Pull.UP
+rit_switch = DigitalInOut(rit_enc_btn)
+rit_switch.direction = Direction.INPUT
+rit_switch.pull = Pull.UP
 
-step_button = digitalio.DigitalInOut(step_switch)
-step_button.direction = digitalio.Direction.INPUT
-step_button.pull = digitalio.Pull.UP
+step_button = DigitalInOut(step_switch)
+step_button.direction = Direction.INPUT
+step_button.pull = Pull.UP
 
-itu_button = digitalio.DigitalInOut(itu_button)
-itu_button.direction = digitalio.Direction.INPUT
-itu_button.pull = digitalio.Pull.UP
+itu_button = DigitalInOut(itu_button)
+itu_button.direction = Direction.INPUT
+itu_button.pull = Pull.UP
 
-band_button = digitalio.DigitalInOut(band_button)
-band_button.direction = digitalio.Direction.INPUT
-band_button.pull = digitalio.Pull.UP
+band_button = DigitalInOut(band_button)
+band_button.direction = Direction.INPUT
+band_button.pull = Pull.UP
 
-"""Configure Debouncers"""
+# Configure Debouncers
 freq_switch_debounced = adafruit_debouncer.Debouncer(freq_switch)
 ptt_button_debounced = adafruit_debouncer.Debouncer(ptt_button)
 rit_switch_debounced = adafruit_debouncer.Debouncer(rit_switch)
@@ -174,7 +156,7 @@ step_button_debounced = adafruit_debouncer.Debouncer(step_button)
 itu_button_debounced = adafruit_debouncer.Debouncer(itu_button)
 band_button_debounced = adafruit_debouncer.Debouncer(band_button)
 
-"""State variables"""
+# State variables
 current_step_index = 2  # Default step to 10000 Hz
 current_mode = MODES[0]  # Defaults to USB
 rit_enabled = False  # RIT Disabled by default
@@ -210,10 +192,7 @@ def save_to_nvm():
 
 def update_display():
     """Update the display with the current frequency, mode, and other parameters."""
-    display_frequency = (
-        current_frequency + rit_value if rit_enabled else current_frequency
-    )
-    text = f" \n"
+    display_frequency = current_frequency + rit_value if rit_enabled else current_frequency
     text = f" \n"
     text += f"     {current_mode} {display_frequency / 1000:.1f} MHz\n"
     text += f" \n"
@@ -266,7 +245,7 @@ def change_band():
     current_band_index = (current_band_index + 1) % len(BANDS)
     current_band = BANDS[current_band_index]
     FREQUENCY_RANGE = FREQUENCY_RANGES[current_region][current_band]
-    current_frequency = FREQUENCY_RANGE[0]
+    current_frequency = FREQUENCY_RANGES[current_region][current_band][0]
     set_frequency(current_frequency)
     save_to_nvm()
 
@@ -278,9 +257,7 @@ def handle_freq_encoder():
     if position != 0:
         step = STEPS[current_step_index]
         current_frequency += position * step
-        current_frequency = max(
-            min(current_frequency, FREQUENCY_RANGE[1]), FREQUENCY_RANGE[0]
-        )
+        current_frequency = max(min(current_frequency, FREQUENCY_RANGE[1]), FREQUENCY_RANGE[0])
         freq_encoder.position = 0
         set_frequency(current_frequency)
         save_to_nvm()
@@ -308,7 +285,7 @@ def update_smeter(level):
 # Main loop
 initialize_nvm()
 while True:
-    """Update debouncers"""
+    # Update debouncers
     freq_switch_debounced.update()
     rit_switch_debounced.update()
     step_button_debounced.update()
@@ -316,7 +293,7 @@ while True:
     itu_button_debounced.update()
     band_button_debounced.update()
 
-    """Handle encoder and button inputs"""
+    # Handle encoder and button inputs
     handle_freq_encoder()
     handle_rit_encoder()
 
@@ -345,7 +322,7 @@ while True:
     if band_button_debounced.fell:
         change_band()
 
-    """Simulate S-meter level for testing purposes (random value between 0 and 9)"""
+    # Simulate S-meter level for testing purposes (random value between 0 and 9)
     smeter_level = time.monotonic() % 10
     update_smeter(int(smeter_level))
 
