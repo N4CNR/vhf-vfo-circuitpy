@@ -19,10 +19,11 @@ from adafruit_display_text import label
 from adafruit_st7735r import ST7735R
 from adafruit_si5351 import SI5351
 from digitalio import DigitalInOut, Direction, Pull
+import analogio
 import rotaryio
 import adafruit_debouncer
 import microcontroller
-import pwmio
+#import pwmio
 
 # ITU Regions and Frequency Bands
 ITU_REGIONS = ["1", "2", "3"]
@@ -59,10 +60,15 @@ sda, scl = board.GP4, board.GP5
 
 # Encoder configuration
 enc_a, enc_b, enc_switch = board.GP13, board.GP14, board.GP15
-ptt_btn, rit_enc_a, rit_enc_b, rit_enc_btn = board.GP2, board.GP16, board.GP17, board.GP18
+ptt_btn, rit_enc_a, rit_enc_b, rit_enc_btn = (
+    board.GP2, board.GP16, board.GP17, board.GP18,
+)
 
 # Button configuration
 step_switch, itu_button, band_button = board.GP3, board.GP6, board.GP7
+
+#smeter pin
+smeter_pin = board.GP26_A0)
 
 # Relay configuration
 relay_pin = board.GP22
@@ -75,7 +81,9 @@ i2c = busio.I2C(scl, sda)
 spi = busio.SPI(clock=tft_clk, MOSI=tft_mosi)
 
 # Setup display
-display_bus = displayio.FourWire(spi, command=tft_dc, chip_select=tft_cs, reset=tft_reset)
+display_bus = displayio.FourWire(
+    spi, command=tft_dc, chip_select=tft_cs, reset=tft_reset
+)
 display = ST7735R(display_bus, width=160, height=128, rotation=90)
 
 # Setup Si5351 clock generator
@@ -84,7 +92,7 @@ si5351.pll_a.configure_integer(24)  # Configure PLL with initial frequency for 1
 
 # Setup display groups and elements
 splash = displayio.Group()
-display.root_group = (splash)
+display.root_group = splash
 
 color_bitmap = displayio.Bitmap(160, 128, 1)
 color_palette = displayio.Palette(1)
@@ -92,18 +100,26 @@ color_palette[0] = 0x000000  # Black background
 bg_sprite = displayio.TileGrid(color_bitmap, pixel_shader=color_palette, x=0, y=0)
 splash.append(bg_sprite)
 
-text_area = label.Label(terminalio.FONT, scale=1, text="Initializing...", color=0xFFFFFF, x=10, y=20)
+text_area = label.Label(
+    terminalio.FONT, scale=1, text="Initializing...", color=0xFFFFFF, x=10, y=20
+)
 splash.append(text_area)
 
-transmitting_label = label.Label(terminalio.FONT, scale=1, text="Transmitting", color=0xFFFF00, x=50, y=95)
+transmitting_label = label.Label(
+    terminalio.FONT, scale=1, text="Transmitting", color=0xFFFF00, x=50, y=95
+)
 splash.append(transmitting_label)
 transmitting_label.hidden = True  # Initially hidden
 
 # Setup S-meter
-smeter_text = label.Label(terminalio.FONT, scale=1, text="S:", color=0x00FF00, x=10, y=5)
+smeter_text = label.Label(
+    terminalio.FONT, scale=1, text="S:{smr} {'#' * smr}{' ' * (9 - smr)}", color=0x00FF00, x=10, y=5
+)
 splash.append(smeter_text)
 
-smeter_text1 = label.Label(terminalio.FONT, scale=1, text="0...3...5...7...9", color=0xFF00ff, x=39, y=16)
+smeter_text1 = label.Label(
+    terminalio.FONT, scale=1, text="0...3...5...7...9", color=0xFF00FF, x=39, y=16
+)
 splash.append(smeter_text1)
 
 smeter_bar = displayio.Bitmap(100, 10, 10)  # Create a bar graph
@@ -117,7 +133,9 @@ splash.append(smeter_sprite)
 blue_bar_bitmap = displayio.Bitmap(160, 10, 1)
 blue_bar_palette = displayio.Palette(1)
 blue_bar_palette[0] = 0xFF0000
-blue_bar = displayio.TileGrid(blue_bar_bitmap, pixel_shader=blue_bar_palette, x=0, y=115)
+blue_bar = displayio.TileGrid(
+    blue_bar_bitmap, pixel_shader=blue_bar_palette, x=0, y=115
+)
 splash.append(blue_bar)
 blue_bar.hidden = True  # Initially hidden
 
@@ -173,12 +191,14 @@ def initialize_nvm():
     else:
         current_region_index = nvm_data[0]
         current_band_index = nvm_data[1]
-        current_frequency = int.from_bytes(nvm_data[2:6], 'big')
+        current_frequency = int.from_bytes(nvm_data[2:6], "big")
         if current_region_index >= len(ITU_REGIONS):
             current_region_index = 0
         if current_band_index >= len(BANDS):
             current_band_index = 0
-        FREQUENCY_RANGE = FREQUENCY_RANGES[ITU_REGIONS[current_region_index]][BANDS[current_band_index]]
+        FREQUENCY_RANGE = FREQUENCY_RANGES[ITU_REGIONS[current_region_index]][
+            BANDS[current_band_index]
+        ]
 
 
 def save_to_nvm():
@@ -186,13 +206,15 @@ def save_to_nvm():
     data = bytearray(8)
     data[0] = current_region_index
     data[1] = current_band_index
-    data[2:6] = current_frequency.to_bytes(4, 'big')
+    data[2:6] = current_frequency.to_bytes(4, "big")
     microcontroller.nvm[:8] = data
 
 
 def update_display():
     """Update the display with the current frequency, mode, and other parameters."""
-    display_frequency = current_frequency + rit_value if rit_enabled else current_frequency
+    display_frequency = (
+        current_frequency + rit_value if rit_enabled else current_frequency
+    )
     text = f" \n"
     text += f"     {current_mode} {display_frequency / 1000:.1f} MHz\n"
     text += f" \n"
@@ -257,7 +279,9 @@ def handle_freq_encoder():
     if position != 0:
         step = STEPS[current_step_index]
         current_frequency += position * step
-        current_frequency = max(min(current_frequency, FREQUENCY_RANGE[1]), FREQUENCY_RANGE[0])
+        current_frequency = max(
+            min(current_frequency, FREQUENCY_RANGE[1]), FREQUENCY_RANGE[0]
+        )
         freq_encoder.position = 0
         set_frequency(current_frequency)
         save_to_nvm()
@@ -323,8 +347,9 @@ while True:
         change_band()
 
     # Simulate S-meter level for testing purposes (random value between 0 and 9)
+    smeter_read = analogio.AnalogIn(smeter_pin).value
     smeter_level = time.monotonic() % 10
-    update_smeter(int(smeter_level))
+    update_smeter(int(sm_read * 10 / 65535))
 
     update_display()
     time.sleep(0.1)  # Small delay to avoid excessive CPU usage
