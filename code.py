@@ -67,6 +67,12 @@ ptt_btn, rit_enc_a, rit_enc_b, rit_enc_btn = (
 )
 step_switch, itu_button, band_button = board.GP3, board.GP6, board.GP7
 
+"""Relay configuration"""
+relay_pin = board.GP22
+relay = digitalio.DigitalInOut(relay_pin)
+relay.direction = digitalio.Direction.OUTPUT
+relay.value = False  # Start with relay off
+
 """Setup I2C and SPI buses"""
 i2c = busio.I2C(scl, sda)
 spi = busio.SPI(clock=tft_clk, MOSI=tft_mosi)
@@ -118,7 +124,7 @@ smeter_bar = displayio.Bitmap(100, 10, 10)  # Create a bar graph
 smeter_palette = displayio.Palette(10)
 for i in range(10):
     smeter_palette[i] = (i * 28, 255 - i * 28, 0)  # Gradient from green to red
-smeter_sprite = displayio.TileGrid(smeter_bar, pixel_shader=smeter_palette, x=40, y=0)
+smeter_sprite = displayio.TileGrid(smeter_bar, pixel_shader=smeter_palette, x=38, y=0)
 splash.append(smeter_sprite)
 
 """Setup Blue Transmitting Bar"""
@@ -314,8 +320,11 @@ while True:
 
     if ptt_button_debounced.fell:
         transmit_mode = True
+        relay.value = True  # Activate relay on transmit
+        time.sleep(0.05)
     if ptt_button_debounced.rose:
         transmit_mode = False
+        relay.value = False  # Deactivate relay on receive
 
     if freq_switch_debounced.fell:
         change_mode()
