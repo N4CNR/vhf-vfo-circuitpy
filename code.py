@@ -110,7 +110,7 @@ smeter_text = label.Label(
 splash.append(smeter_text)
 
 smeter_text1 = label.Label(
-    terminalio.FONT, scale=1, text="0 1 2 3 4 5 6 7 8", color=0xFF0000, x=39, y=20
+    terminalio.FONT, scale=1, text="0...3...5...7...9", color=0xFF00ff, x=39, y=16
 )
 splash.append(smeter_text1)
 
