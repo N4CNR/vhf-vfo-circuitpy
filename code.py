@@ -10,6 +10,7 @@
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
 # WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+
 import time
 import board
 import busio
@@ -68,7 +69,7 @@ ptt_btn, rit_enc_a, rit_enc_b, rit_enc_btn = (
 # Button configuration
 step_switch, itu_button, band_button = board.GP3, board.GP6, board.GP7
 
-# smeter 
+# smeter
 # Initialize the A0 pin as an analog input
 analog_in = analogio.AnalogIn(board.A0)
 
@@ -115,16 +116,16 @@ transmitting_label.hidden = True  # Initially hidden
 
 # Setup S-meter
 smeter_text = label.Label(
-    terminalio.FONT, scale=1, text="S: 0", color=0x00FF00, x=10, y=5
+    terminalio.FONT, scale=1, text="S:", color=0x00FF00, x=25, y=5
 )
 splash.append(smeter_text)
 
 smeter_text1 = label.Label(
-    terminalio.FONT, scale=1, text="0...3...5...7...9", color=0xFF00FF, x=39, y=16
+    terminalio.FONT, scale=1, text="0...3...5...7...9", color=0xFF00FF, x=35, y=16
 )
 splash.append(smeter_text1)
 
-smeter_bar = displayio.Bitmap(100, 10, 10)  # Create a bar graph
+smeter_bar = displayio.Bitmap(100, 5, 5)  # Create a bar graph
 smeter_palette = displayio.Palette(10)
 for i in range(10):
     smeter_palette[i] = (i * 28, 255 - i * 28, 0)  # Gradient from green to red
@@ -231,8 +232,7 @@ def update_display():
 
     # Display the voltage on the screen
     voltage = get_voltage(analog_in)
-    smeter_text.text = f"S: {voltage:.2f} V"
-    
+
     # Visualize the voltage level on the S-meter bar
     smeter_level = int((voltage / 3.3) * 10)  # Scale voltage to 0-10 range
     for x in range(100):
