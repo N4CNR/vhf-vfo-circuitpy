@@ -21,6 +21,7 @@ from adafruit_si5351 import SI5351
 import digitalio
 import rotaryio
 import adafruit_debouncer
+import microcontroller
 
 """ITU Regions and Frequency Bands"""
 ITU_REGIONS = ["1", "2", "3"]
@@ -48,17 +49,6 @@ DEFAULT_FREQUENCY = current_frequency
 
 """Release any displays that may be in use"""
 displayio.release_displays()
-
-""" Future Changes
-# VCC		    3V3
-# GND		    GND
-# CS		    GP13
-# RESET		    GP14
-# DC		    GP15
-# SDI(MOSI)	    GP7
-# SCK		    GP6
-# LED		    3V3
-"""
 
 """Pin configuration for ST7735 TFT Display"""
 tft_clk, tft_mosi, tft_reset = board.GP10, board.GP11, board.GP12
@@ -89,10 +79,6 @@ display = ST7735R(display_bus, width=160, height=128, rotation=90)
 
 """Setup Si5351 clock generator"""
 si5351 = SI5351(i2c)
-
-# Initialize the Si5351 with a crystal load capacitance of 8pF
-#si5351.init(8)
-
 # Configure PLL with initial frequency for 144 MHz
 si5351.pll_a.configure_integer(24)
 
@@ -119,7 +105,7 @@ transmitting_label.hidden = True  # Initially hidden
 
 """Setup S-meter"""
 smeter_text = label.Label(
-    terminalio.FONT, scale=1, text="S:", color=0x00FF00, x=10, y=5
+    terminalio.FONT, scale=1, text="S:", color=0x00FF00, x=20, y=5
 )
 splash.append(smeter_text)
 
@@ -127,7 +113,7 @@ smeter_bar = displayio.Bitmap(100, 10, 10)  # Create a bar graph
 smeter_palette = displayio.Palette(10)
 for i in range(10):
     smeter_palette[i] = (i * 28, 255 - i * 28, 0)  # Gradient from green to red
-smeter_sprite = displayio.TileGrid(smeter_bar, pixel_shader=smeter_palette, x=22, y=0)
+smeter_sprite = displayio.TileGrid(smeter_bar, pixel_shader=smeter_palette, x=50, y=0)
 splash.append(smeter_sprite)
 
 """Setup Blue Transmitting Bar"""
@@ -183,6 +169,32 @@ rit_value = 0  # Default RIT to 0 when Disabled
 transmit_mode = False  # Track the transmit mode
 
 
+def initialize_nvm():
+    """Initialize NVM with default settings if no settings are found."""
+    global current_region_index, current_band_index, current_frequency
+    nvm_data = microcontroller.nvm[:8]
+    if nvm_data == bytes([0xFF] * 8):  # NVM is empty
+        save_to_nvm()
+    else:
+        current_region_index = nvm_data[0]
+        current_band_index = nvm_data[1]
+        current_frequency = int.from_bytes(nvm_data[2:6], 'big')
+        if current_region_index >= len(ITU_REGIONS):
+            current_region_index = 0
+        if current_band_index >= len(BANDS):
+            current_band_index = 0
+        FREQUENCY_RANGE = FREQUENCY_RANGES[ITU_REGIONS[current_region_index]][BANDS[current_band_index]]
+
+
+def save_to_nvm():
+    """Save the current settings to NVM."""
+    data = bytearray(8)
+    data[0] = current_region_index
+    data[1] = current_band_index
+    data[2:6] = current_frequency.to_bytes(4, 'big')
+    microcontroller.nvm[:8] = data
+
+
 def update_display():
     """Update the display with the current frequency, mode, and other parameters."""
     display_frequency = (
@@ -214,6 +226,7 @@ def change_mode():
     """Change the mode between USB and LSB."""
     global current_mode
     current_mode = MODES[(MODES.index(current_mode) + 1) % len(MODES)]
+    save_to_nvm()
 
 
 def change_step():
@@ -230,6 +243,7 @@ def change_itu_region():
     FREQUENCY_RANGE = FREQUENCY_RANGES[current_region][current_band]
     current_frequency = FREQUENCY_RANGE[0]
     set_frequency(current_frequency)
+    save_to_nvm()
 
 
 def change_band():
@@ -240,6 +254,7 @@ def change_band():
     FREQUENCY_RANGE = FREQUENCY_RANGES[current_region][current_band]
     current_frequency = FREQUENCY_RANGE[0]
     set_frequency(current_frequency)
+    save_to_nvm()
 
 
 def handle_freq_encoder():
@@ -254,6 +269,7 @@ def handle_freq_encoder():
         )
         freq_encoder.position = 0
         set_frequency(current_frequency)
+        save_to_nvm()
 
 
 def handle_rit_encoder():
@@ -276,6 +292,7 @@ def update_smeter(level):
 
 
 # Main loop
+initialize_nvm()
 while True:
     """Update debouncers"""
     freq_switch_debounced.update()
