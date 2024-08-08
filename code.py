@@ -105,15 +105,20 @@ transmitting_label.hidden = True  # Initially hidden
 
 """Setup S-meter"""
 smeter_text = label.Label(
-    terminalio.FONT, scale=1, text="S:", color=0x00FF00, x=20, y=5
+    terminalio.FONT, scale=1, text="S:", color=0x00FF00, x=10, y=5
 )
 splash.append(smeter_text)
+
+smeter_text1 = label.Label(
+    terminalio.FONT, scale=1, text="0 1 2 3 4 5 6 7 8", color=0xFF0000, x=39, y=20
+)
+splash.append(smeter_text1)
 
 smeter_bar = displayio.Bitmap(100, 10, 10)  # Create a bar graph
 smeter_palette = displayio.Palette(10)
 for i in range(10):
     smeter_palette[i] = (i * 28, 255 - i * 28, 0)  # Gradient from green to red
-smeter_sprite = displayio.TileGrid(smeter_bar, pixel_shader=smeter_palette, x=50, y=0)
+smeter_sprite = displayio.TileGrid(smeter_bar, pixel_shader=smeter_palette, x=40, y=0)
 splash.append(smeter_sprite)
 
 """Setup Blue Transmitting Bar"""
@@ -200,6 +205,7 @@ def update_display():
     display_frequency = (
         current_frequency + rit_value if rit_enabled else current_frequency
     )
+    text = f" \n"
     text = f" \n"
     text += f"     {current_mode} {display_frequency / 1000:.1f} MHz\n"
     text += f" \n"
