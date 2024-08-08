@@ -10,6 +10,7 @@
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
 # WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+
 import time
 import board
 import busio
@@ -35,7 +36,7 @@ FREQUENCY_RANGES = {
 IF_FREQUENCY = 26994100  # Intermediate Frequency
 
 STEPS = [100, 1000, 10000, 100000]  # Frequency steps in Hz
-MODES = ["USB", "LSB"]  # Operational modes
+MODES = ["USB", "LSB", "CW"]  # Operational modes, added "CW"
 DOUBLE_PRESS_INTERVAL = 0.5  # Time interval for double press detection in seconds
 
 """Initial state"""
@@ -68,6 +69,9 @@ ptt_btn, rit_enc_a, rit_enc_b, rit_enc_btn = (
 
 """Button configuration"""
 step_switch, itu_button, band_button = board.GP3, board.GP6, board.GP7
+
+"""CW key configuration"""
+cw_key_pin = board.GP19
 
 """Relay configuration"""
 relay_pin = board.GP22
@@ -166,6 +170,10 @@ band_button = digitalio.DigitalInOut(band_button)
 band_button.direction = digitalio.Direction.INPUT
 band_button.pull = digitalio.Pull.UP
 
+cw_key = digitalio.DigitalInOut(cw_key_pin)
+cw_key.direction = digitalio.Direction.INPUT
+cw_key.pull = digitalio.Pull.UP
+
 """Configure Debouncers"""
 freq_switch_debounced = adafruit_debouncer.Debouncer(freq_switch)
 ptt_button_debounced = adafruit_debouncer.Debouncer(ptt_button)
@@ -173,6 +181,7 @@ rit_switch_debounced = adafruit_debouncer.Debouncer(rit_switch)
 step_button_debounced = adafruit_debouncer.Debouncer(step_button)
 itu_button_debounced = adafruit_debouncer.Debouncer(itu_button)
 band_button_debounced = adafruit_debouncer.Debouncer(band_button)
+cw_key_debounced = adafruit_debouncer.Debouncer(cw_key)
 
 """State variables"""
 current_step_index = 2  # Default step to 10000 Hz
@@ -214,7 +223,7 @@ def update_display():
         current_frequency + rit_value if rit_enabled else current_frequency
     )
     text = f" \n"
-    text = f" \n"
+    text = f" \n"   
     text += f"     {current_mode} {display_frequency / 1000:.1f} MHz\n"
     text += f" \n"
     text += f" Step: {STEPS[current_step_index]} Hz\n"
@@ -237,7 +246,7 @@ def set_frequency(frequency):
 
 
 def change_mode():
-    """Change the mode between USB and LSB."""
+    """Change the mode between USB, LSB, and CW."""
     global current_mode
     current_mode = MODES[(MODES.index(current_mode) + 1) % len(MODES)]
     save_to_nvm()
@@ -296,6 +305,19 @@ def handle_rit_encoder():
         rit_encoder.position = 0
 
 
+def handle_cw_key():
+    """Handle CW key input."""
+    global transmit_mode
+    if current_mode == "CW":
+        cw_key_debounced.update()
+        if cw_key_debounced.fell:
+            transmit_mode = True
+            relay.value = True  # Activate relay on CW key press
+        if cw_key_debounced.rose:
+            transmit_mode = False
+            relay.value = False  # Deactivate relay on CW key release
+
+
 def update_smeter(level):
     """Update the S-meter display."""
     level = min(max(level, 0), 9)  # Ensure level is between 0 and 9
@@ -319,6 +341,7 @@ while True:
     """Handle encoder and button inputs"""
     handle_freq_encoder()
     handle_rit_encoder()
+    handle_cw_key()
 
     if ptt_button_debounced.fell:
         transmit_mode = True
