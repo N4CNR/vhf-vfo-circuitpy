@@ -57,7 +57,7 @@ tft_dc, tft_cs = board.GP8, board.GP9
 """I2C configuration for SI5351 clock chip"""
 sda, scl = board.GP4, board.GP5
 
-"""Encoder and button configuration"""
+"""Encoder configuration"""
 enc_a, enc_b, enc_switch = board.GP13, board.GP14, board.GP15
 ptt_btn, rit_enc_a, rit_enc_b, rit_enc_btn = (
     board.GP2,
@@ -65,7 +65,15 @@ ptt_btn, rit_enc_a, rit_enc_b, rit_enc_btn = (
     board.GP17,
     board.GP18,
 )
+
+"""Button configuration"""
 step_switch, itu_button, band_button = board.GP3, board.GP6, board.GP7
+
+"""Relay configuration"""
+relay_pin = board.GP22
+relay = digitalio.DigitalInOut(relay_pin)
+relay.direction = digitalio.Direction.OUTPUT
+relay.value = False  # Start with relay off
 
 """Setup I2C and SPI buses"""
 i2c = busio.I2C(scl, sda)
@@ -314,8 +322,11 @@ while True:
 
     if ptt_button_debounced.fell:
         transmit_mode = True
+        relay.value = True  # Activate relay on transmit
+        time.sleep(0.05)
     if ptt_button_debounced.rose:
         transmit_mode = False
+        relay.value = False  # Deactivate relay on receive
 
     if freq_switch_debounced.fell:
         change_mode()
