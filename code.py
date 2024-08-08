@@ -23,7 +23,8 @@ import analogio
 import rotaryio
 import adafruit_debouncer
 import microcontroller
-#import pwmio
+import pwmio
+
 
 # ITU Regions and Frequency Bands
 ITU_REGIONS = ["1", "2", "3"]
@@ -67,8 +68,9 @@ ptt_btn, rit_enc_a, rit_enc_b, rit_enc_btn = (
 # Button configuration
 step_switch, itu_button, band_button = board.GP3, board.GP6, board.GP7
 
-#smeter pin
-smeter_pin = board.GP26_A0)
+# smeter 
+# Initialize the A0 pin as an analog input
+analog_in = analogio.AnalogIn(board.A0)
 
 # Relay configuration
 relay_pin = board.GP22
@@ -113,7 +115,7 @@ transmitting_label.hidden = True  # Initially hidden
 
 # Setup S-meter
 smeter_text = label.Label(
-    terminalio.FONT, scale=1, text="S:{smr} {'#' * smr}{' ' * (9 - smr)}", color=0x00FF00, x=10, y=5
+    terminalio.FONT, scale=1, text="S: 0", color=0x00FF00, x=10, y=5
 )
 splash.append(smeter_text)
 
@@ -181,6 +183,9 @@ rit_enabled = False  # RIT Disabled by default
 rit_value = 0  # Default RIT to 0 when Disabled
 transmit_mode = False  # Track the transmit mode
 
+def get_voltage(pin):
+    # Convert the analog reading to a voltage (assuming a 3.3V reference)
+    return (pin.value * 3.3) / 65536
 
 def initialize_nvm():
     """Initialize NVM with default settings if no settings are found."""
@@ -200,7 +205,6 @@ def initialize_nvm():
             BANDS[current_band_index]
         ]
 
-
 def save_to_nvm():
     """Save the current settings to NVM."""
     data = bytearray(8)
@@ -208,7 +212,6 @@ def save_to_nvm():
     data[1] = current_band_index
     data[2:6] = current_frequency.to_bytes(4, "big")
     microcontroller.nvm[:8] = data
-
 
 def update_display():
     """Update the display with the current frequency, mode, and other parameters."""
@@ -226,6 +229,17 @@ def update_display():
     transmitting_label.hidden = ptt_button.value  # Show transmitting if PTT is pressed
     blue_bar.hidden = ptt_button.value  # Show red bar if PTT is pressed
 
+    # Display the voltage on the screen
+    voltage = get_voltage(analog_in)
+    smeter_text.text = f"S: {voltage:.2f} V"
+    
+    # Visualize the voltage level on the S-meter bar
+    smeter_level = int((voltage / 3.3) * 10)  # Scale voltage to 0-10 range
+    for x in range(100):
+        smeter_bar[x, 0] = 9 if x < smeter_level * 10 else 0
+
+# Initial display update
+update_display()
 
 def set_frequency(frequency):
     """Set the frequency on the Si5351."""
@@ -236,19 +250,16 @@ def set_frequency(frequency):
     si5351.clock_1.configure_integer(si5351.pll_a, pll_frequency // 8000000)
     si5351.outputs_enabled = True
 
-
 def change_mode():
     """Change the mode between USB and LSB."""
     global current_mode
     current_mode = MODES[(MODES.index(current_mode) + 1) % len(MODES)]
     save_to_nvm()
 
-
 def change_step():
     """Cycle through the frequency steps."""
     global current_step_index
     current_step_index = (current_step_index + 1) % len(STEPS)
-
 
 def change_itu_region():
     """Cycle through the ITU regions."""
@@ -260,7 +271,6 @@ def change_itu_region():
     set_frequency(current_frequency)
     save_to_nvm()
 
-
 def change_band():
     """Cycle through the frequency bands."""
     global current_band_index, current_band, FREQUENCY_RANGE, current_frequency
@@ -270,7 +280,6 @@ def change_band():
     current_frequency = FREQUENCY_RANGES[current_region][current_band][0]
     set_frequency(current_frequency)
     save_to_nvm()
-
 
 def handle_freq_encoder():
     """Handle frequency encoder changes."""
@@ -286,7 +295,6 @@ def handle_freq_encoder():
         set_frequency(current_frequency)
         save_to_nvm()
 
-
 def handle_rit_encoder():
     """Handle RIT encoder changes."""
     global rit_value
@@ -296,7 +304,6 @@ def handle_rit_encoder():
         rit_value = max(min(rit_value, 9900), -9900)
         rit_encoder.position = 0
 
-
 def update_smeter(level):
     """Update the S-meter display."""
     level = min(max(level, 0), 9)  # Ensure level is between 0 and 9
@@ -304,7 +311,6 @@ def update_smeter(level):
     smeter_text.color = (level * 28, 255 - level * 28, 0)
     for x in range(100):
         smeter_bar[x, 0] = min(x // 10, level)  # Update bar graph
-
 
 # Main loop
 initialize_nvm()
@@ -345,11 +351,6 @@ while True:
 
     if band_button_debounced.fell:
         change_band()
-
-    # Simulate S-meter level for testing purposes (random value between 0 and 9)
-    smeter_read = analogio.AnalogIn(smeter_pin).value
-    smeter_level = time.monotonic() % 10
-    update_smeter(int(sm_read * 10 / 65535))
 
     update_display()
     time.sleep(0.1)  # Small delay to avoid excessive CPU usage
