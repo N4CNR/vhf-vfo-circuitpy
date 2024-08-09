@@ -10,7 +10,6 @@
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
 # WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-
 import time
 import board
 import busio
@@ -54,44 +53,94 @@ DEFAULT_FREQUENCY = current_frequency
 displayio.release_displays()
 
 # Pin configuration for ST7735 TFT Display
-tft_clk, tft_mosi, tft_reset = board.GP10, board.GP11, board.GP12
-tft_dc, tft_cs = board.GP8, board.GP9
+tft_clk, tft_mosi, tft_reset = board.GP18, board.GP19, board.GP16
+tft_dc, tft_cs = board.GP15, board.GP17
 
 # I2C configuration for SI5351 clock chip
 sda, scl = board.GP4, board.GP5
 
-# Encoder configuration
-enc_a, enc_b, enc_switch = board.GP13, board.GP14, board.GP15
-ptt_btn, rit_enc_a, rit_enc_b, rit_enc_btn = (
-    board.GP2, board.GP16, board.GP17, board.GP18,
-)
-
-# Button configuration
-step_switch, itu_button, band_button = board.GP3, board.GP6, board.GP7
-
-# smeter
-# Initialize the A0 pin as an analog input
-analog_in = analogio.AnalogIn(board.A0)
-
-# Relay configuration
-relay_pin = board.GP22
-relay = DigitalInOut(relay_pin)
-relay.direction = Direction.OUTPUT
-relay.value = False  # Start with relay off
-
 # Setup I2C and SPI buses
 i2c = busio.I2C(scl, sda)
 spi = busio.SPI(clock=tft_clk, MOSI=tft_mosi)
+
+# Encoder configuration
+enc_a, enc_b, enc_switch = board.GP7, board.GP8, board.GP9
+rit_enc_a, rit_enc_b, rit_enc_btn = board.GP11, board.GP12, board.GP13
+
+# Button configuration
+step_switch, itu_button, band_button = board.GP1, board.GP2, board.GP3
+
+#ptt pin to activate ptt code
+ptt_pin = board.GP0
+
+#relay pins
+filter_relay_pin, tx_relay_pin = board.GP21, board.GP22
+
+# Initialize the A0 pin as an analog input
+analog_in = analogio.AnalogIn(board.A0)
+
+# Encoder and button setup
+band_button = DigitalInOut(band_button)
+band_button.direction = Direction.INPUT
+band_button.pull = Pull.UP
+
+freq_encoder = rotaryio.IncrementalEncoder(enc_a, enc_b)
+freq_switch = DigitalInOut(enc_switch)
+freq_switch.direction = Direction.INPUT
+freq_switch.pull = Pull.UP
+
+itu_button = DigitalInOut(itu_button)
+itu_button.direction = Direction.INPUT
+itu_button.pull = Pull.UP
+
+rit_encoder = rotaryio.IncrementalEncoder(rit_enc_a, rit_enc_b)
+rit_switch = DigitalInOut(rit_enc_btn)
+rit_switch.direction = Direction.INPUT
+rit_switch.pull = Pull.UP
+
+step_button = DigitalInOut(step_switch)
+step_button.direction = Direction.INPUT
+step_button.pull = Pull.UP
+
+# Ptt Pin Configuration
+ptt_pin = DigitalInOut(ptt_pin)
+ptt_pin.direction = Direction.INPUT
+ptt_pin.pull = Pull.UP
+
+# Relay configuration
+filter_relay = DigitalInOut(filter_relay_pin)
+filter_relay.direction = Direction.OUTPUT
+filter_relay.value = False  # Start with relay off
+
+tx_relay = DigitalInOut(tx_relay_pin)
+tx_relay.direction = Direction.OUTPUT
+tx_relay.value = False  # Start with relay off
+
+
+# Configure Debouncers
+band_button_debounced = adafruit_debouncer.Debouncer(band_button)
+freq_switch_debounced = adafruit_debouncer.Debouncer(freq_switch)
+itu_button_debounced = adafruit_debouncer.Debouncer(itu_button)
+ptt_pin_debounced = adafruit_debouncer.Debouncer(ptt_pin)
+rit_switch_debounced = adafruit_debouncer.Debouncer(rit_switch)
+step_button_debounced = adafruit_debouncer.Debouncer(step_button)
+
+# State variables
+current_step_index = 2  # Default step to 10000 Hz
+current_mode = MODES[0]  # Defaults to USB
+rit_enabled = False  # RIT Disabled by default
+rit_value = 0  # Default RIT to 0 when Disabled
+transmit_mode = False  # Track the transmit mode
+
+# Setup Si5351 clock generator
+si5351 = SI5351(i2c)
+si5351.pll_a.configure_integer(24)  # Configure PLL with initial frequency for 144 MHz
 
 # Setup display
 display_bus = displayio.FourWire(
     spi, command=tft_dc, chip_select=tft_cs, reset=tft_reset
 )
 display = ST7735R(display_bus, width=160, height=128, rotation=90)
-
-# Setup Si5351 clock generator
-si5351 = SI5351(i2c)
-si5351.pll_a.configure_integer(24)  # Configure PLL with initial frequency for 144 MHz
 
 # Setup display groups and elements
 splash = displayio.Group()
@@ -121,7 +170,7 @@ smeter_text = label.Label(
 splash.append(smeter_text)
 
 smeter_text1 = label.Label(
-    terminalio.FONT, scale=1, text="0...3...5...7...9", color=0xFF00FF, x=35, y=16
+    terminalio.FONT, scale=1, text="0...3...5...7...9", color=0xFF00FF, x=37, y=16
 )
 splash.append(smeter_text1)
 
@@ -142,48 +191,8 @@ blue_bar = displayio.TileGrid(
 splash.append(blue_bar)
 blue_bar.hidden = True  # Initially hidden
 
-# Encoder and button setup
-freq_encoder = rotaryio.IncrementalEncoder(enc_a, enc_b)
-freq_switch = DigitalInOut(enc_switch)
-freq_switch.direction = Direction.INPUT
-freq_switch.pull = Pull.UP
-
-ptt_button = DigitalInOut(ptt_btn)
-ptt_button.direction = Direction.INPUT
-ptt_button.pull = Pull.UP
-
-rit_encoder = rotaryio.IncrementalEncoder(rit_enc_a, rit_enc_b)
-rit_switch = DigitalInOut(rit_enc_btn)
-rit_switch.direction = Direction.INPUT
-rit_switch.pull = Pull.UP
-
-step_button = DigitalInOut(step_switch)
-step_button.direction = Direction.INPUT
-step_button.pull = Pull.UP
-
-itu_button = DigitalInOut(itu_button)
-itu_button.direction = Direction.INPUT
-itu_button.pull = Pull.UP
-
-band_button = DigitalInOut(band_button)
-band_button.direction = Direction.INPUT
-band_button.pull = Pull.UP
-
-# Configure Debouncers
-freq_switch_debounced = adafruit_debouncer.Debouncer(freq_switch)
-ptt_button_debounced = adafruit_debouncer.Debouncer(ptt_button)
-rit_switch_debounced = adafruit_debouncer.Debouncer(rit_switch)
-step_button_debounced = adafruit_debouncer.Debouncer(step_button)
-itu_button_debounced = adafruit_debouncer.Debouncer(itu_button)
-band_button_debounced = adafruit_debouncer.Debouncer(band_button)
-
-# State variables
-current_step_index = 2  # Default step to 10000 Hz
-current_mode = MODES[0]  # Defaults to USB
-rit_enabled = False  # RIT Disabled by default
-rit_value = 0  # Default RIT to 0 when Disabled
-transmit_mode = False  # Track the transmit mode
-
+#
+""" Store Base Settings NVM """
 def get_voltage(pin):
     # Convert the analog reading to a voltage (assuming a 3.3V reference)
     return (pin.value * 3.3) / 65536
@@ -220,15 +229,15 @@ def update_display():
         current_frequency + rit_value if rit_enabled else current_frequency
     )
     text = f" \n"
-    text += f"     {current_mode} {display_frequency / 1000:.1f} MHz\n"
+    text += f"      {current_mode} {display_frequency / 1000:.1f}\n"
     text += f" \n"
     text += f" Step: {STEPS[current_step_index]} Hz\n"
     text += f" RIT: {'ON' if rit_enabled else 'OFF'} {rit_value / 1000:.1f} kHz \n"
     text += " \n"
     text += f"Band:{current_band}            ITU:{current_region} \n"
     text_area.text = text
-    transmitting_label.hidden = ptt_button.value  # Show transmitting if PTT is pressed
-    blue_bar.hidden = ptt_button.value  # Show red bar if PTT is pressed
+    transmitting_label.hidden = ptt_pin.value  # Show transmitting if PTT is pressed
+    blue_bar.hidden = ptt_pin.value  # Show red bar if PTT is pressed
 
     # Display the voltage on the screen
     voltage = get_voltage(analog_in)
@@ -312,6 +321,7 @@ def update_smeter(level):
     for x in range(100):
         smeter_bar[x, 0] = min(x // 10, level)  # Update bar graph
 
+
 # Main loop
 initialize_nvm()
 while True:
@@ -319,7 +329,7 @@ while True:
     freq_switch_debounced.update()
     rit_switch_debounced.update()
     step_button_debounced.update()
-    ptt_button_debounced.update()
+    ptt_pin_debounced.update()
     itu_button_debounced.update()
     band_button_debounced.update()
 
@@ -327,13 +337,15 @@ while True:
     handle_freq_encoder()
     handle_rit_encoder()
 
-    if ptt_button_debounced.fell:
+    if ptt_pin_debounced.fell:
         transmit_mode = True
-        relay.value = True  # Activate relay on transmit
+        tx_relay.value = True  # Activate relay on transmit
+        filter_relay.value = True # Activate relay on transmit
         time.sleep(0.05)
-    if ptt_button_debounced.rose:
+    if ptt_pin_debounced.rose:
         transmit_mode = False
-        relay.value = False  # Deactivate relay on receive
+        tx_relay.value = False  # Deactivate relay on receive
+        filter_relay.value = False # Deactivate relay on receive
 
     if freq_switch_debounced.fell:
         change_mode()
